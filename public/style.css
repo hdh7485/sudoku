@@ -32,6 +32,7 @@ body {
     min-height: 100vh;
     display: flex;
     justify-content: center;
+    align-items: flex-start;
 }
 
 #app {
@@ -46,6 +47,114 @@ body {
 
 .screen.active {
     display: block;
+}
+
+/* ===== 로그인/회원가입 화면 ===== */
+.auth-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding-top: 40px;
+}
+
+.auth-container h1 {
+    margin-bottom: 8px;
+}
+
+.auth-container .subtitle {
+    margin-bottom: 32px;
+}
+
+.auth-form {
+    width: 100%;
+    max-width: 360px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.auth-form input {
+    padding: 14px 16px;
+    font-size: 1rem;
+    border: 2px solid var(--border);
+    border-radius: 10px;
+    outline: none;
+    transition: border-color 0.2s;
+    background: var(--card-bg);
+}
+
+.auth-form input:focus {
+    border-color: var(--primary);
+}
+
+.auth-form .btn-primary {
+    margin-top: 4px;
+}
+
+.auth-toggle {
+    margin-top: 16px;
+    text-align: center;
+    color: var(--text-light);
+    font-size: 0.9rem;
+}
+
+.auth-toggle a {
+    color: var(--primary);
+    cursor: pointer;
+    text-decoration: underline;
+    font-weight: 500;
+}
+
+.auth-error {
+    color: var(--error);
+    font-size: 0.85rem;
+    text-align: center;
+    min-height: 20px;
+}
+
+.guest-link {
+    margin-top: 12px;
+    text-align: center;
+}
+
+.guest-link a {
+    color: var(--text-light);
+    cursor: pointer;
+    font-size: 0.85rem;
+    text-decoration: underline;
+}
+
+/* 사용자 정보 헤더 */
+.user-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.user-info {
+    font-size: 0.85rem;
+    color: var(--text-light);
+}
+
+.user-info strong {
+    color: var(--text);
+}
+
+.btn-logout {
+    background: none;
+    border: 1px solid var(--border);
+    padding: 4px 12px;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    color: var(--text-light);
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.btn-logout:hover {
+    border-color: var(--error);
+    color: var(--error);
 }
 
 /* 메인 화면 */
@@ -461,7 +570,137 @@ h1 {
     font-size: 1.1rem;
 }
 
-/* 반응형 */
+/* ===== PC 반응형 (768px 이상) ===== */
+@media (min-width: 768px) {
+    body {
+        align-items: center;
+        padding: 20px;
+    }
+
+    #app {
+        max-width: 600px;
+        padding: 32px;
+        background: var(--card-bg);
+        border-radius: 20px;
+        box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+        margin: 20px 0;
+    }
+
+    h1 {
+        font-size: 2.6rem;
+        margin: 16px 0 6px;
+    }
+
+    .subtitle {
+        font-size: 1.1rem;
+    }
+
+    .difficulty-card {
+        padding: 22px 28px;
+    }
+
+    .difficulty-name {
+        font-size: 1.3rem;
+    }
+
+    .difficulty-stars {
+        font-size: 1.25rem;
+    }
+
+    .progress-bar {
+        height: 10px;
+    }
+
+    .progress-text {
+        font-size: 0.95rem;
+    }
+
+    .screen-header h2 {
+        font-size: 1.5rem;
+    }
+
+    .timer {
+        font-size: 1.15rem;
+    }
+
+    .puzzle-grid {
+        gap: 14px;
+    }
+
+    .puzzle-cell {
+        font-size: 1.25rem;
+        border-radius: 12px;
+    }
+
+    #sudoku-board td {
+        width: 56px;
+        height: 56px;
+        font-size: 1.5rem;
+    }
+
+    .memo-grid span {
+        font-size: 0.7rem;
+    }
+
+    .num-pad {
+        gap: 10px;
+        margin-bottom: 16px;
+    }
+
+    .num-btn {
+        padding: 18px 0;
+        font-size: 1.5rem;
+        border-radius: 12px;
+    }
+
+    .action-btn {
+        padding: 12px 28px;
+        font-size: 1.05rem;
+    }
+
+    .modal-content {
+        max-width: 420px;
+        padding: 40px;
+    }
+
+    .modal-content h2 {
+        font-size: 1.8rem;
+    }
+
+    .auth-form input {
+        padding: 16px 18px;
+        font-size: 1.05rem;
+    }
+}
+
+/* ===== 더 넓은 PC (1024px 이상) ===== */
+@media (min-width: 1024px) {
+    #app {
+        max-width: 680px;
+        padding: 40px;
+    }
+
+    h1 {
+        font-size: 2.8rem;
+    }
+
+    #sudoku-board td {
+        width: 62px;
+        height: 62px;
+        font-size: 1.6rem;
+    }
+
+    .memo-grid span {
+        font-size: 0.75rem;
+    }
+
+    .num-btn {
+        padding: 20px 0;
+        font-size: 1.6rem;
+    }
+}
+
+/* 모바일 소형 */
 @media (max-width: 400px) {
     #sudoku-board td {
         width: 38px;

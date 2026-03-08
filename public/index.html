@@ -8,8 +8,32 @@
 </head>
 <body>
     <div id="app">
+        <!-- 로그인/회원가입 화면 -->
+        <div id="auth-screen" class="screen active">
+            <div class="auth-container">
+                <h1>스도쿠</h1>
+                <p class="subtitle" id="auth-subtitle">로그인</p>
+                <form class="auth-form" id="auth-form">
+                    <input type="text" id="auth-username" placeholder="아이디" autocomplete="username" maxlength="20">
+                    <input type="password" id="auth-password" placeholder="비밀번호" autocomplete="current-password">
+                    <div class="auth-error" id="auth-error"></div>
+                    <button type="submit" class="btn-primary" id="auth-submit">로그인</button>
+                </form>
+                <div class="auth-toggle" id="auth-toggle">
+                    계정이 없으신가요? <a id="auth-switch">회원가입</a>
+                </div>
+                <div class="guest-link">
+                    <a id="guest-login">게스트로 플레이</a>
+                </div>
+            </div>
+        </div>
+
         <!-- 메인 화면: 난이도 선택 -->
-        <div id="home-screen" class="screen active">
+        <div id="home-screen" class="screen">
+            <div class="user-header">
+                <span class="user-info"><strong id="display-username"></strong>님</span>
+                <button class="btn-logout" id="btn-logout">로그아웃</button>
+            </div>
             <h1>스도쿠</h1>
             <p class="subtitle">난이도를 선택하세요</p>
             <div class="difficulty-list">
