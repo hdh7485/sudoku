@@ -235,6 +235,8 @@ body {
     justify-content: flex-end;
     margin-top: 12px;
     gap: 4px;
+    position: relative;
+    z-index: 100;
 }
 
 .stock-pile {
