@@ -21,6 +21,7 @@
         selectedCol: -1,
         selectedIdx: -1,
         history: [],
+        animating: false,
     };
 
     // === 덱 생성 ===
@@ -76,6 +77,7 @@
             selectedCol: -1,
             selectedIdx: -1,
             history: [],
+            animating: false,
         };
 
         startTimer();
@@ -122,7 +124,15 @@
 
     // === 카드 이동 ===
     function moveCards(fromCol, fromIdx, toCol) {
+        // FLIP: First - 이동 전 카드 위치 기록
+        const movingRects = [];
+        for (let i = fromIdx; i < state.columns[fromCol].length; i++) {
+            movingRects.push(getCardRect(fromCol, i));
+        }
+
         const cards = state.columns[fromCol].splice(fromIdx);
+        const flippedCard = state.columns[fromCol].length > 0 &&
+            !state.columns[fromCol][state.columns[fromCol].length - 1].faceUp;
         const flipped = flipTopCard(fromCol);
 
         state.columns[toCol].push(...cards);
@@ -137,10 +147,66 @@
             flipped,
         });
 
-        // 완성된 수트 확인
-        checkCompleted(toCol);
         updateInfo();
         render();
+
+        // FLIP: Last & Invert & Play
+        const toCards = state.columns[toCol];
+        const startIdx = toCards.length - cards.length;
+        const animCards = [];
+
+        for (let i = 0; i < cards.length; i++) {
+            const newRect = getCardRect(toCol, startIdx + i);
+            const oldRect = movingRects[i];
+            if (oldRect && newRect) {
+                const dx = oldRect.left - newRect.left;
+                const dy = oldRect.top - newRect.top;
+                const colDiv = document.querySelectorAll("#columns .column")[toCol];
+                const cardDiv = colDiv.querySelectorAll(".card")[startIdx + i];
+                if (cardDiv) {
+                    cardDiv.style.transform = `translate(${dx}px, ${dy}px)`;
+                    cardDiv.classList.add("animating-move");
+                    animCards.push(cardDiv);
+                }
+            }
+        }
+
+        if (animCards.length > 0) {
+            setAnimating(true);
+            // Force reflow so browser registers initial transform
+            animCards.forEach(c => forceReflow(c));
+            requestAnimationFrame(() => {
+                requestAnimationFrame(() => {
+                    animCards.forEach(c => c.style.transform = "translate(0, 0)");
+                });
+            });
+            const last = animCards[animCards.length - 1];
+            onTransitionEnd(last, () => {
+                animCards.forEach(c => {
+                    c.classList.remove("animating-move");
+                    c.style.transform = "";
+                });
+
+                // 뒤집기 애니메이션
+                if (flipped) {
+                    animateFlip(fromCol, state.columns[fromCol].length - 1, () => {
+                        setAnimating(false);
+                        checkCompleted(toCol);
+                    });
+                } else {
+                    setAnimating(false);
+                    checkCompleted(toCol);
+                }
+            }, 350);
+        } else {
+            if (flipped) {
+                animateFlip(fromCol, state.columns[fromCol].length - 1, () => {
+                    checkCompleted(toCol);
+                });
+            } else {
+                checkCompleted(toCol);
+            }
+        }
     }
 
     function flipTopCard(col) {
@@ -150,6 +216,20 @@
             return true;
         }
         return false;
+    }
+
+    function animateFlip(col, idx, callback) {
+        render();
+        const colDiv = document.querySelectorAll("#columns .column")[col];
+        if (!colDiv) { if (callback) callback(); return; }
+        const cardDiv = colDiv.querySelectorAll(".card")[idx];
+        if (!cardDiv) { if (callback) callback(); return; }
+        cardDiv.classList.add("animating-flip");
+        cardDiv.addEventListener("animationend", function handler() {
+            cardDiv.removeEventListener("animationend", handler);
+            cardDiv.classList.remove("animating-flip");
+            if (callback) callback();
+        });
     }
 
     // === 완성 체크 (K~A 같은 수트 13장) ===
@@ -167,11 +247,20 @@
             if (cards[i].rank !== cards[i + 1].rank + 1) return;
         }
 
-        // 완성!
+        // 완성! 애니메이션 실행
+        setAnimating(true);
+
+        // 완성 카드 위치 기록
+        const cardRects = [];
+        for (let i = startIdx; i < cards.length; i++) {
+            cardRects.push(getCardRect(col, i));
+        }
+        const targetRect = getCompletedAreaRect();
+
         const removed = cards.splice(startIdx, 13);
         state.completed.push(removed[0].suit);
         state.score += 100;
-        flipTopCard(col);
+        const flipped = flipTopCard(col);
 
         state.history.push({
             type: "complete",
@@ -180,15 +269,85 @@
             cards: removed,
         });
 
-        // 8세트 완성 시 승리
-        if (state.completed.length === 8) {
-            setTimeout(showWin, 500);
+        updateInfo();
+        render();
+
+        // 완성된 카드를 오버레이로 순차 애니메이션
+        const overlay = document.createElement("div");
+        overlay.style.cssText = "position:fixed;inset:0;z-index:1500;pointer-events:none;";
+        document.body.appendChild(overlay);
+
+        const animPromises = [];
+        for (let i = 12; i >= 0; i--) {
+            const rect = cardRects[i];
+            if (!rect || !targetRect) continue;
+
+            const promise = new Promise(resolve => {
+                setTimeout(() => {
+                    const el = document.createElement("div");
+                    el.className = "card face-up animating-complete " + SUIT_COLORS[removed[i].suit];
+                    el.style.cssText = `
+                        position:fixed;
+                        left:${rect.left}px;top:${rect.top}px;
+                        width:${rect.width}px;height:${rect.height}px;
+                        border-radius:6px;background:#fff;
+                        display:flex;flex-direction:column;padding:3px 5px;
+                    `;
+                    const topEl = document.createElement("div");
+                    topEl.className = "card-top";
+                    topEl.textContent = RANKS[removed[i].rank] + SUIT_SYMBOLS[removed[i].suit];
+                    el.appendChild(topEl);
+                    overlay.appendChild(el);
+                    forceReflow(el);
+
+                    requestAnimationFrame(() => {
+                        const dx = targetRect.left - rect.left;
+                        const dy = targetRect.top - rect.top;
+                        const sx = targetRect.width / rect.width;
+                        const sy = targetRect.height / rect.height;
+                        el.style.transform = `translate(${dx}px, ${dy}px) scale(${sx}, ${sy})`;
+                        el.style.opacity = "0.6";
+                    });
+
+                    onTransitionEnd(el, () => {
+                        el.remove();
+                        resolve();
+                    }, 500);
+                }, (12 - i) * 30);
+            });
+            animPromises.push(promise);
         }
+
+        Promise.all(animPromises).then(() => {
+            overlay.remove();
+            // 완성 세트에 바운스 효과
+            const completedSets = document.querySelectorAll("#completed-area .completed-set");
+            const lastSet = completedSets[completedSets.length - 1];
+            if (lastSet) {
+                lastSet.classList.add("bounce");
+                lastSet.addEventListener("animationend", () => lastSet.classList.remove("bounce"));
+            }
+
+            if (flipped) {
+                animateFlip(col, state.columns[col].length - 1, () => {
+                    setAnimating(false);
+                    if (state.completed.length === 8) {
+                        setTimeout(showWin, 500);
+                    }
+                });
+            } else {
+                setAnimating(false);
+                if (state.completed.length === 8) {
+                    setTimeout(showWin, 500);
+                }
+            }
+        });
     }
 
     // === 스톡에서 카드 딜 ===
     function dealFromStock() {
         if (state.stock.length === 0) return;
+        if (state.animating) return;
 
         // 빈 열이 있으면 딜 불가
         for (let c = 0; c < NUM_COLUMNS; c++) {
@@ -198,27 +357,74 @@
             }
         }
 
-        const dealt = [];
+        setAnimating(true);
+
+        const stockRect = getStockRect();
+
+        // 데이터 먼저 변경
+        const dealtCards = [];
         for (let c = 0; c < NUM_COLUMNS; c++) {
             const card = state.stock.pop();
             card.faceUp = true;
             state.columns[c].push(card);
-            dealt.push(c);
+            dealtCards.push({ col: c, idx: state.columns[c].length - 1 });
         }
 
         state.history.push({ type: "deal", count: NUM_COLUMNS });
-
-        // 딜 후 각 열에서 완성 확인
-        for (let c = 0; c < NUM_COLUMNS; c++) {
-            checkCompleted(c);
-        }
-
         updateInfo();
         render();
+
+        // 각 카드를 순차 애니메이션
+        let completed = 0;
+        dealtCards.forEach((info, i) => {
+            const newRect = getCardRect(info.col, info.idx);
+            if (!newRect || !stockRect) {
+                completed++;
+                if (completed === NUM_COLUMNS) finishDealAnim();
+                return;
+            }
+            const colDiv = document.querySelectorAll("#columns .column")[info.col];
+            const cardDiv = colDiv && colDiv.querySelectorAll(".card")[info.idx];
+            if (!cardDiv) {
+                completed++;
+                if (completed === NUM_COLUMNS) finishDealAnim();
+                return;
+            }
+
+            const dx = stockRect.left - newRect.left;
+            const dy = stockRect.top - newRect.top;
+            cardDiv.style.transform = `translate(${dx}px, ${dy}px) scale(0.8)`;
+            cardDiv.style.opacity = "0";
+            cardDiv.classList.add("animating-deal");
+            forceReflow(cardDiv);
+
+            setTimeout(() => {
+                requestAnimationFrame(() => {
+                    cardDiv.style.transform = "translate(0, 0) scale(1)";
+                    cardDiv.style.opacity = "1";
+                });
+                onTransitionEnd(cardDiv, () => {
+                    cardDiv.classList.remove("animating-deal");
+                    cardDiv.style.transform = "";
+                    cardDiv.style.opacity = "";
+                    completed++;
+                    if (completed === NUM_COLUMNS) finishDealAnim();
+                }, 450);
+            }, i * 50);
+        });
+
+        function finishDealAnim() {
+            setAnimating(false);
+            // 딜 후 각 열에서 완성 확인
+            for (let c = 0; c < NUM_COLUMNS; c++) {
+                checkCompleted(c);
+            }
+        }
     }
 
     // === 되돌리기 ===
     function undo() {
+        if (state.animating) return;
         if (state.history.length === 0) return;
 
         const action = state.history.pop();
@@ -377,6 +583,7 @@
 
     // === 카드 클릭 처리 ===
     function onCardClick(col, idx) {
+        if (state.animating) return;
         const card = state.columns[col][idx];
         if (!card.faceUp) return;
 
@@ -412,6 +619,7 @@
     }
 
     function onEmptyColumnClick(col) {
+        if (state.animating) return;
         if (state.selectedCol !== -1 && state.columns[col].length === 0) {
             const fromCol = state.selectedCol;
             const fromIdx = state.selectedIdx;
@@ -423,6 +631,61 @@
     function clearSelection() {
         state.selectedCol = -1;
         state.selectedIdx = -1;
+    }
+
+    // === 애니메이션 헬퍼 ===
+    function setAnimating(on) {
+        state.animating = on;
+        const table = document.querySelector(".table-area");
+        if (table) {
+            if (on) table.classList.add("animating");
+            else table.classList.remove("animating");
+        }
+    }
+
+    function onTransitionEnd(el, callback, timeoutMs) {
+        let done = false;
+        const finish = () => {
+            if (done) return;
+            done = true;
+            el.removeEventListener("transitionend", handler);
+            callback();
+        };
+        const handler = () => finish();
+        el.addEventListener("transitionend", handler);
+        setTimeout(finish, timeoutMs || 400);
+    }
+
+    function forceReflow(el) {
+        void el.offsetHeight;
+    }
+
+    function getCardRect(col, idx) {
+        const colDiv = document.querySelectorAll("#columns .column")[col];
+        if (!colDiv) return null;
+        const cardDiv = colDiv.querySelectorAll(".card")[idx];
+        if (!cardDiv) return null;
+        return cardDiv.getBoundingClientRect();
+    }
+
+    function getStockRect() {
+        const stockArea = document.getElementById("stock-area");
+        const pile = stockArea && stockArea.querySelector(".stock-pile");
+        if (pile) return pile.getBoundingClientRect();
+        return stockArea ? stockArea.getBoundingClientRect() : null;
+    }
+
+    function getCompletedAreaRect() {
+        const area = document.getElementById("completed-area");
+        if (!area) return null;
+        const rect = area.getBoundingClientRect();
+        // 다음 완성 세트가 놓일 위치
+        const sets = area.querySelectorAll(".completed-set");
+        if (sets.length > 0) {
+            const last = sets[sets.length - 1].getBoundingClientRect();
+            return { top: last.top, left: last.right + 4, width: 36, height: 50 };
+        }
+        return { top: rect.top, left: rect.left, width: 36, height: 50 };
     }
 
     // === 화면 전환 ===
